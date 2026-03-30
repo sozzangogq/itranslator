@@ -29,7 +29,7 @@ st.markdown("---")
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     # [중요] NotFound 에러 해결을 위해 -latest 부침
-    model = genai.GenerativeModel('gemini-1.5-flash-latest') 
+   model = genai.GenerativeModel('gemini-pro') 
     slack_webhook_url = st.secrets.get("SLACK_WEBHOOK_URL", "")
     slack_token = st.secrets["SLACK_BOT_TOKEN"]
     slack_client = WebClient(token=slack_token)
