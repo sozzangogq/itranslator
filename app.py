@@ -5,10 +5,10 @@ from slack_sdk.errors import SlackApiError
 import requests
 import json
 
-# [UI 업그레이드] 페이지 설정부터 범상치 않게!
+# [UI 세팅] 페이지 설정부터 범상치 않게!
 st.set_page_config(page_title="'그' 말투 번역기", page_icon="🤯", layout="wide")
 
-# [UI 업그레이드] 사이드바에 킹받는 생존 지침서 추가
+# 사이드바 킹받는 생존 지침서
 with st.sidebar:
     st.header("😭 K-직장인 생존 지침서")
     st.markdown("""
@@ -18,25 +18,24 @@ with st.sidebar:
     ---
     *개발: 눈치 100단 비서실장 AI*
     """)
-    st.image("https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM24xb3NnaXd0YndiaXUyamk5MXRxd20wamc5NnAzamN5amphYW9zdiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3ov9jS62h1f0vXfC9i/giphy.gif") # 병맛 움짤 추가
+    st.image("https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM24xb3NnaXd0YndiaXUyamk5MXRxd20wamc5NnAzamN5amphYW9zdiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3ov9jS62h1f0vXfC9i/giphy.gif")
 
-# [UI 업그레이드] 타이틀 변경 및 시각적 테러
+# 메인 타이틀
 st.markdown("<h1 style='text-align: center; color: red; font-size: 60px;'>🤯 '그' 말투 번역기 🤯</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; font-size: 20px;'>도대체 뭔 소린지 모르겠는 상사의 지시... AI가 피눈물을 흘리며 해독해 드립니다. 💧</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# 설정 불러오기
+# 설정 불러오기 (여기가 문제의 띄어쓰기 + 모델 이름 완벽 세팅된 부분!)
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # [중요] NotFound 에러 해결을 위해 -latest 부침
-   model = genai.GenerativeModel('gemini-pro') 
+    model = genai.GenerativeModel('gemini-pro') 
     slack_webhook_url = st.secrets.get("SLACK_WEBHOOK_URL", "")
     slack_token = st.secrets["SLACK_BOT_TOKEN"]
     slack_client = WebClient(token=slack_token)
 except KeyError:
     st.error("🚨 설정(Secrets)에 API 키나 슬랙 토큰이 빠져있어요. 노비 문서 확인 바랍니다.")
 
-# [UI 업그레이드] 입력 칸을 좀 더 극적으로 배치
+# 입력 칸 배치
 col_id, col_msg = st.columns([1, 2])
 
 with col_id:
@@ -54,22 +53,21 @@ with col_msg:
 if "translated_text" not in st.session_state:
     st.session_state.translated_text = ""
 
-# [UI 업그레이드] 버튼 디자인 및 멘트 변경
+# 번역 버튼
 st.markdown("---")
 button_col1, button_col2, button_col3 = st.columns([1, 2, 1])
 
 with button_col2:
     translate_btn = st.button("🚨 사회생활 심폐소생술 시작 (내 말투 자동 학습) 🚨", use_container_width=True)
 
-# 메인 로직
+# 메인 로직 실행
 if translate_btn:
     if not channel_id or not user_id or not boss_message:
         st.warning("⚠️ ID랑 메시지 다 넣으라고요... 현기증 나니까...")
     else:
-        # [UI 업그레이드] 로딩 스피너 멘트 변경
         with st.spinner("🕵️‍♂️ 슬랙에 침입하여 과거의 당신이 저지른 대화 내역을 훔치는 중..."):
             try:
-                result = slack_client.conversations_history(channel=channel_id, limit=80) # 80개로 늘림
+                result = slack_client.conversations_history(channel=channel_id, limit=80)
                 messages = result["messages"]
                 my_messages = [msg["text"] for msg in messages if msg.get("user") == user_id and "text" in msg]
                 
@@ -104,15 +102,12 @@ if translate_btn:
                 else:
                     st.error(f"슬랙 연동 에러 (망함): {error_msg}")
 
-# [UI 업그레이드] 결과 출력 화면을 아주 OOO하게 세팅
+# 결과 출력
 if st.session_state.translated_text:
     st.markdown("<br><h2 style='text-align: center; color: green;'>✨ 영롱한 번역 결과 ✨</h2>", unsafe_allow_html=True)
-    
-    # 텍스트 박스 안에 넣어서 좀 더 가독성 높임
     st.info(st.session_state.translated_text)
     
     st.markdown("---")
-    # [UI 업그레이드] 전송 버튼도 킹받게
     if slack_webhook_url and st.button("💬 이 완벽한 답장을 슬랙으로 바로 쏴버리기 (딸깍)", use_container_width=True):
         with st.spinner("🚀 부장님에게 폭탄 배송 중..."):
             slack_data = {"text": f"🤖 *AI 비서가 피눈물 흘리며 적어준 추천 답장입니다!*\n\n{st.session_state.translated_text}"}
