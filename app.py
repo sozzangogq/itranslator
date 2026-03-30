@@ -72,4 +72,46 @@ if st.button("🚀 밈으로 승화된 답장 제조하기", use_container_width
             try:
                 # 내 말투 수집
                 result = slack_client.conversations_history(channel=channel_id, limit=40)
-                my_style = "\n- ".join([m["text"] for m in result["messages"] if m.
+                my_style = "\n- ".join([m["text"] for m in result["messages"] if m.get("user") == user_id][:15])
+                
+                # 프롬프트 가이드
+                instructions = {
+                    "✨ 럭키비키 모드 (초긍정 원영사고)": "모든 상황을 초긍정적으로 해석해. '오히려 좋아!', '완전 럭키비키잖아!' 같은 말투 사용.",
+                    "🤔 T발 너 C야? (극강의 논리/팩폭)": "감정 빼고 극도로 논리적으로 팩트만 공격해. 상대의 기분보다 효율이 우선인 말투.",
+                    "🤫 누칼협 모드 (알빠노/사회성 제로)": "'알빠노', '누가 칼 들고 협박함?' 같은 마인드로 아주 무심하고 건방지게 대답해.",
+                    "🫡 에너제틱 신입사원 (MZ 패기)": "지나치게 열정적이라 오히려 부담스러운 말투. '가보자고!', '가즈아!' 같은 에너지 뿜뿜.",
+                    "💀 은은한 광기 (친절한데 무서운)": "말투는 극도로 친절한데 내용이나 이모티콘이 묘하게 압박감을 주는 스타일 (예: ^^... 네 알겠습니다...)"
+                }
+
+                prompt = f"""
+                너는 '그' 말투 번역기야. 사용자의 말투를 베이스로 최신 밈을 섞어 답장을 만들어.
+                
+                [나의 평소 말투 데이터]: {my_style}
+                [상사 메시지]: {boss_msg}
+                [내 본심 내용]: {my_raw_reply if my_raw_reply else '적절하게'}
+                [장착할 밈 필터]: {instructions[meme_option]}
+                
+                미션:
+                1. 상사 메시지의 '진짜 속뜻'을 한 줄로 요약해.
+                2. '나의 평소 말투'를 50% 유지하면서, '밈 필터'를 50% 섞어서 최종 답장을 만들어.
+                
+                출력 양식:
+                🚨 **상사의 속뜻**: 
+                💡 **최종 답장 ({meme_option})**: 
+                """
+                
+                response = model.generate_content(prompt)
+                st.session_state.translated_text = response.text
+                st.balloons()
+            except Exception as e:
+                st.error(f"오류: {e}")
+
+# 결과 출력
+if st.session_state.translated_text:
+    st.markdown("---")
+    st.markdown("### 🏆 제조 완료!")
+    st.info(st.session_state.translated_text)
+    
+    if slack_webhook_url and st.button("💬 슬랙으로 폭탄 배송하기"):
+        requests.post(slack_webhook_url, json={"text": st.session_state.translated_text})
+        st.toast("배송 완료! 이제 로그아웃 하세요.")
