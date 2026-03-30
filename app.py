@@ -12,7 +12,7 @@ st.write("슬랙에서 내 평소 말투를 자동으로 긁어와서, 상사의
 # 설정 불러오기
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     slack_webhook_url = st.secrets.get("SLACK_WEBHOOK_URL", "")
     slack_token = st.secrets["SLACK_BOT_TOKEN"]
     slack_client = WebClient(token=slack_token)
