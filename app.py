@@ -5,91 +5,119 @@ from slack_sdk.errors import SlackApiError
 import requests
 import json
 
-st.set_page_config(page_title="대표님 말투 번역기", page_icon="😎")
-st.title("😎 대표님 말투 번역기 (슬랙 자동 학습 버전)")
-st.write("슬랙에서 내 평소 말투를 자동으로 긁어와서, 상사의 외계어에 찰떡같이 답장해 줍니다!")
+# [UI 업그레이드] 페이지 설정부터 범상치 않게!
+st.set_page_config(page_title="'그' 말투 번역기", page_icon="🤯", layout="wide")
+
+# [UI 업그레이드] 사이드바에 킹받는 생존 지침서 추가
+with st.sidebar:
+    st.header("😭 K-직장인 생존 지침서")
+    st.markdown("""
+    1. **상사는 항상 옳다.** (아니면 말고)
+    2. **퇴근 시간은 숫자에 불과하다.**
+    3. **이 앱을 켠 순간, 넌 이미 일류다.**
+    ---
+    *개발: 눈치 100단 비서실장 AI*
+    """)
+    st.image("https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM24xb3NnaXd0YndiaXUyamk5MXRxd20wamc5NnAzamN5amphYW9zdiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3ov9jS62h1f0vXfC9i/giphy.gif") # 병맛 움짤 추가
+
+# [UI 업그레이드] 타이틀 변경 및 시각적 테러
+st.markdown("<h1 style='text-align: center; color: red; font-size: 60px;'>🤯 '그' 말투 번역기 🤯</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; font-size: 20px;'>도대체 뭔 소린지 모르겠는 상사의 지시... AI가 피눈물을 흘리며 해독해 드립니다. 💧</p>", unsafe_allow_html=True)
+st.markdown("---")
 
 # 설정 불러오기
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    # [중요] NotFound 에러 해결을 위해 -latest 부침
+    model = genai.GenerativeModel('gemini-1.5-flash-latest') 
     slack_webhook_url = st.secrets.get("SLACK_WEBHOOK_URL", "")
     slack_token = st.secrets["SLACK_BOT_TOKEN"]
     slack_client = WebClient(token=slack_token)
 except KeyError:
-    st.error("앗! 설정(Secrets)에 API 키나 슬랙 토큰이 빠져있어요.")
+    st.error("🚨 설정(Secrets)에 API 키나 슬랙 토큰이 빠져있어요. 노비 문서 확인 바랍니다.")
 
-# UI: 사용자 입력 받기
-st.subheader("1. 기본 정보 입력 (데모 시연용)")
-col1, col2 = st.columns(2)
-with col1:
-    # 슬랙 채널 ID (채널 이름 우클릭 -> 링크 복사 후 맨 끝 영문숫자 조합)
-    channel_id = st.text_input("데이터를 긁어올 슬랙 채널 ID:", placeholder="예: C12345678")
-with col2:
-    # 내 슬랙 멤버 ID (내 프로필 클릭 -> 점 3개 -> 멤버 ID 복사)
-    user_id = st.text_input("나의 슬랙 멤버 ID:", placeholder="예: U12345678")
+# [UI 업그레이드] 입력 칸을 좀 더 극적으로 배치
+col_id, col_msg = st.columns([1, 2])
 
-boss_message = st.text_area("2. 대표님(또는 타팀)이 보낸 킹받는 메시지:", placeholder="예: 이거 린하게 디벨롭 해보죠^^")
+with col_id:
+    st.subheader("🕵️‍♂️ 노비 문서(슬랙) 정보 추출")
+    st.markdown("<small>채널 우클릭->링크 복사 끝에꺼</small>", unsafe_allow_html=True)
+    channel_id = st.text_input("📍 킹받는 채널 ID:", placeholder="예: C0123456789")
+    
+    st.markdown("<small>내 프로필->점3개->멤버 ID 복사</small>", unsafe_allow_html=True)
+    user_id = st.text_input("👤 나의 노비 ID (멤버 ID):", placeholder="예: U0123456789")
+
+with col_msg:
+    st.subheader("🤬 상사의 주절주절 입력")
+    boss_message = st.text_area("그냥 복붙하세요. 뭔 말인지 이해하려고 하지 마세요.", placeholder="예: 이거 린하게 디벨롭 해보죠^^", height=150)
 
 if "translated_text" not in st.session_state:
     st.session_state.translated_text = ""
 
-# 대망의 버튼!
-if st.button("🚀 내 말투 자동 수집 & 번역 시작!"):
+# [UI 업그레이드] 버튼 디자인 및 멘트 변경
+st.markdown("---")
+button_col1, button_col2, button_col3 = st.columns([1, 2, 1])
+
+with button_col2:
+    translate_btn = st.button("🚨 사회생활 심폐소생술 시작 (내 말투 자동 학습) 🚨", use_container_width=True)
+
+# 메인 로직
+if translate_btn:
     if not channel_id or not user_id or not boss_message:
-        st.warning("채널 ID, 멤버 ID, 상사의 메시지를 모두 입력해 주세요!")
+        st.warning("⚠️ ID랑 메시지 다 넣으라고요... 현기증 나니까...")
     else:
-        with st.spinner("슬랙에 잠입하여 내 말투를 긁어오는 중... 🕵️‍♂️"):
+        # [UI 업그레이드] 로딩 스피너 멘트 변경
+        with st.spinner("🕵️‍♂️ 슬랙에 침입하여 과거의 당신이 저지른 대화 내역을 훔치는 중..."):
             try:
-                # 1. 슬랙 채널에서 최근 대화 50개 가져오기
-                result = slack_client.conversations_history(channel=channel_id, limit=50)
+                result = slack_client.conversations_history(channel=channel_id, limit=80) # 80개로 늘림
                 messages = result["messages"]
-                
-                # 2. 그 중에서 '내가(user_id)' 쓴 글만 필터링하기
                 my_messages = [msg["text"] for msg in messages if msg.get("user") == user_id and "text" in msg]
                 
                 if not my_messages:
-                    st.error("앗! 해당 채널에서 최근에 님이 쓰신 메시지를 찾을 수 없어요. (최근 50개 기준)")
+                    st.error("🚨 헐; 이 채널에서 님이 쓴 글이 없는데요? 유령이신가요? (최근 80개 기준)")
                 else:
-                    # 3. 내 말투 데이터를 하나의 텍스트로 묶기
                     my_style_data = "\n- ".join(my_messages)
-                    st.success(f"성공! 슬랙에서 내 말투 {len(my_messages)}개를 성공적으로 긁어왔습니다.")
+                    st.toast(f"✅ 성공! 당신의 과거 {len(my_messages)}개를 훔쳐왔습니다.", icon='🔓')
                     
-                    # 4. AI에게 번역 시키기
-                    with st.spinner("말투 분석 및 번역 중... 짱구 굴리는 중... 🧠"):
+                    with st.spinner("🧠 비서실장 AI가 뇌 주름을 펼쳐 '그' 말투를 분석 중..."):
                         prompt = f"""
                         너는 20년 차 눈치 빠른 비서실장이야. 
-                        아래 [상사의 메시지]의 속뜻을 파악하고, [나의 평소 슬랙 말투]를 분석해서 
-                        내 말투와 똑같은 자연스러운 답장을 만들어줘.
+                        아래 [상사의 메시지]의 속뜻을 팩트폭격 수준으로 아주 솔직하게 파악하고, 
+                        [나의 평소 슬랙 말투]를 분석해서 내 말투와 똑같은 자연스러운 답장을 만들어줘.
                         
                         [상사의 메시지]: {boss_message}
                         [나의 평소 슬랙 말투 (자동 수집됨)]: \n- {my_style_data}
                         
-                        출력 양식:
-                        🚨 **진짜 속뜻**: (솔직하게 해석)
-                        ✅ **Action Item**: (내가 해야 할 행동)
-                        💡 **내 말투로 쓴 답장**: (내 평소 말투를 완벽히 모방한 답장)
+                        출력 양식은 무조건 아래처럼 해줘 (이모티콘 과하게 써서):
+                        🚨 **진짜 속뜻 (헐;)**: 
+                        ✅ **Action Item (이거나 해라)**: 
+                        💡 **내 말투로 쓴 답장 (살려주세요)**: 
                         """
                         response = model.generate_content(prompt)
                         st.session_state.translated_text = response.text
+                        st.balloons() # 성공 세레모니
                         
             except SlackApiError as e:
-                # 에러 발생 시 (봇이 채널에 초대 안 된 경우 등)
                 error_msg = e.response['error']
                 if error_msg == "not_in_channel":
-                    st.error("🚨 봇이 해당 채널에 없습니다! 슬랙 채널 채팅창에 `/invite @말투 번역기` 를 쳐서 봇을 초대해 주세요.")
+                    st.error("🚨 봇이 채널에 없습니다! 슬랙 채팅창에 `/invite @말투 번역기` 를 쳐서 봇을 초대하세요! 제발!")
                 else:
-                    st.error(f"슬랙 연동 에러: {error_msg}")
+                    st.error(f"슬랙 연동 에러 (망함): {error_msg}")
 
-# 결과 출력 및 슬랙 쏘기
+# [UI 업그레이드] 결과 출력 화면을 아주 OOO하게 세팅
 if st.session_state.translated_text:
-    st.markdown("---")
-    st.markdown(st.session_state.translated_text)
+    st.markdown("<br><h2 style='text-align: center; color: green;'>✨ 영롱한 번역 결과 ✨</h2>", unsafe_allow_html=True)
     
-    if slack_webhook_url and st.button("💬 이 답장을 슬랙으로 바로 쏘기"):
-        slack_data = {"text": f"🤖 *AI가 번역한 추천 답장입니다!*\n\n{st.session_state.translated_text}"}
-        res = requests.post(slack_webhook_url, data=json.dumps(slack_data), headers={'Content-Type': 'application/json'})
-        if res.status_code == 200:
-            st.success("슬랙 채널로 메시지가 날아갔습니다! 🎉")
-        else:
-            st.error("슬랙 전송 실패!")
+    # 텍스트 박스 안에 넣어서 좀 더 가독성 높임
+    st.info(st.session_state.translated_text)
+    
+    st.markdown("---")
+    # [UI 업그레이드] 전송 버튼도 킹받게
+    if slack_webhook_url and st.button("💬 이 완벽한 답장을 슬랙으로 바로 쏴버리기 (딸깍)", use_container_width=True):
+        with st.spinner("🚀 부장님에게 폭탄 배송 중..."):
+            slack_data = {"text": f"🤖 *AI 비서가 피눈물 흘리며 적어준 추천 답장입니다!*\n\n{st.session_state.translated_text}"}
+            res = requests.post(slack_webhook_url, data=json.dumps(slack_data), headers={'Content-Type': 'application/json'})
+            if res.status_code == 200:
+                st.success("부장님 채널로 메시지가 날아갔습니다! 이제 도망가세요! 🎉")
+            else:
+                st.error("슬랙 전송 실패! (오히려 좋아?)")
