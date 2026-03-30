@@ -5,10 +5,9 @@ from slack_sdk.errors import SlackApiError
 import requests
 import json
 
-# [UI 세팅] 페이지 설정부터 범상치 않게!
+# [UI 세팅] 페이지 설정
 st.set_page_config(page_title="'그' 말투 번역기", page_icon="🤯", layout="wide")
 
-# 사이드바 킹받는 생존 지침서
 with st.sidebar:
     st.header("😭 K-직장인 생존 지침서")
     st.markdown("""
@@ -20,22 +19,29 @@ with st.sidebar:
     """)
     st.image("https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM24xb3NnaXd0YndiaXUyamk5MXRxd20wamc5NnAzamN5amphYW9zdiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3ov9jS62h1f0vXfC9i/giphy.gif")
 
-# 메인 타이틀
 st.markdown("<h1 style='text-align: center; color: red; font-size: 60px;'>🤯 '그' 말투 번역기 🤯</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; font-size: 20px;'>도대체 뭔 소린지 모르겠는 상사의 지시... AI가 피눈물을 흘리며 해독해 드립니다. 💧</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# 설정 불러오기 (여기가 문제의 띄어쓰기 + 모델 이름 완벽 세팅된 부분!)
+# [핵심 수정] 구글 AI 모델 "자동 검색" 기능 탑재!
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-pro') 
+    
+    # 꼼수: 내 API 키로 쓸 수 있는 AI 모델 목록을 싹 다 가져옵니다.
+    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    
+    if not available_models:
+        st.error("🚨 구글 API 키에 문제가 있는 것 같아요. 사용 가능한 모델이 없습니다.")
+    else:
+        # 가장 첫 번째로 검색된 사용 가능한 모델을 무조건 가져다 씁니다! (NotFound 에러 원천 차단)
+        model = genai.GenerativeModel(available_models[0])
+        
     slack_webhook_url = st.secrets.get("SLACK_WEBHOOK_URL", "")
     slack_token = st.secrets["SLACK_BOT_TOKEN"]
     slack_client = WebClient(token=slack_token)
-except KeyError:
-    st.error("🚨 설정(Secrets)에 API 키나 슬랙 토큰이 빠져있어요. 노비 문서 확인 바랍니다.")
+except Exception as e:
+    st.error(f"🚨 설정 오류 발생: {e}")
 
-# 입력 칸 배치
 col_id, col_msg = st.columns([1, 2])
 
 with col_id:
@@ -53,14 +59,12 @@ with col_msg:
 if "translated_text" not in st.session_state:
     st.session_state.translated_text = ""
 
-# 번역 버튼
 st.markdown("---")
 button_col1, button_col2, button_col3 = st.columns([1, 2, 1])
 
 with button_col2:
     translate_btn = st.button("🚨 사회생활 심폐소생술 시작 (내 말투 자동 학습) 🚨", use_container_width=True)
 
-# 메인 로직 실행
 if translate_btn:
     if not channel_id or not user_id or not boss_message:
         st.warning("⚠️ ID랑 메시지 다 넣으라고요... 현기증 나니까...")
@@ -91,9 +95,10 @@ if translate_btn:
                         ✅ **Action Item (이거나 해라)**: 
                         💡 **내 말투로 쓴 답장 (살려주세요)**: 
                         """
+                        # 자동으로 찾은 모델을 사용하여 번역 실행
                         response = model.generate_content(prompt)
                         st.session_state.translated_text = response.text
-                        st.balloons() # 성공 세레모니
+                        st.balloons() 
                         
             except SlackApiError as e:
                 error_msg = e.response['error']
@@ -101,8 +106,10 @@ if translate_btn:
                     st.error("🚨 봇이 채널에 없습니다! 슬랙 채팅창에 `/invite @말투 번역기` 를 쳐서 봇을 초대하세요! 제발!")
                 else:
                     st.error(f"슬랙 연동 에러 (망함): {error_msg}")
+            except Exception as e:
+                # 구글 AI 쪽 에러가 나면 무서운 빨간 글씨 대신 여기에 원인을 띄워줍니다.
+                st.error(f"🚨 구글 AI 번역 중 에러가 발생했습니다: {e}")
 
-# 결과 출력
 if st.session_state.translated_text:
     st.markdown("<br><h2 style='text-align: center; color: green;'>✨ 영롱한 번역 결과 ✨</h2>", unsafe_allow_html=True)
     st.info(st.session_state.translated_text)
