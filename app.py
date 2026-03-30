@@ -6,16 +6,16 @@ import requests
 import json
 
 # [UI 설정]
-st.set_page_config(page_title="'그' 말투 번역기 V2", page_icon="🔥", layout="wide")
+st.set_page_config(page_title="'그' 말투 번역기 Professional", page_icon="💼", layout="wide")
 
-# 사이드바 (킹받는 짤과 가이드)
+# 사이드바
 with st.sidebar:
-    st.header("🏁 K-직장인 서바이벌")
-    st.markdown("1. 꺾이지 않는 마음(퇴사)\n2. 중꺾마보다 중요한 건 중꺾그마(그냥 하는 마음)")
+    st.header("😭 직장인 서바이벌 가이드")
+    st.markdown("1. 꺾이지 않는 마음(퇴사)\n2. 중꺾그마(그냥 하는 마음)")
     st.image("https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM24xb3NnaXd0YndiaXUyamk5MXRxd20wamc5NnAzamN5amphYW9zdiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3ov9jS62h1f0vXfC9i/giphy.gif")
 
-st.markdown("<h1 style='text-align: center; color: #FF4B4B;'>🤯 '그' 말투 번역기 : 밈 에디션</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>상사의 말을 해독하고, 내 본심을 최신 밈으로 승화시키세요.</p>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #1E1E1E;'>💼 '그' 말투 번역기 : Pro</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #666;'>상사의 의도를 정확히 파악하고, 최적화된 비즈니스 응답을 생성합니다.</p>", unsafe_allow_html=True)
 
 # [설정 로드]
 try:
@@ -26,92 +26,112 @@ try:
     slack_client = WebClient(token=slack_token)
     slack_webhook_url = st.secrets.get("SLACK_WEBHOOK_URL", "")
 except Exception as e:
-    st.error(f"⚠️ 설정 오류: {e}")
+    st.error(f"⚠️ 시스템 설정 확인 필요: {e}")
 
-# [입력 섹션]
-st.markdown("### 1️⃣ 정보 동기화")
-c1, c2 = st.columns(2)
-with c1:
-    channel_id = st.text_input("📍 채널 ID", placeholder="C로 시작하는 코드")
-with c2:
-    user_id = st.text_input("👤 내 멤버 ID", placeholder="U로 시작하는 코드")
+# 세션 상태 초기화 (단계별 진행을 위해)
+if "step" not in st.session_state:
+    st.session_state.step = 1
+if "decoded_text" not in st.session_state:
+    st.session_state.decoded_text = ""
+if "final_reply" not in st.session_state:
+    st.session_state.final_reply = ""
+
+# [기본 정보 입력]
+with st.expander("🔑 연동 정보 설정 (최초 1회)", expanded=(st.session_state.step == 1)):
+    c1, c2 = st.columns(2)
+    with c1:
+        channel_id = st.text_input("📍 채널 ID", placeholder="C로 시작하는 코드")
+    with c2:
+        user_id = st.text_input("👤 내 멤버 ID", placeholder="U로 시작하는 코드")
 
 st.markdown("---")
 
-# 2단계 섹션
-col_left, col_right = st.columns(2)
-
-with col_left:
-    st.markdown("### 2️⃣ 상사 메시지 해독")
-    boss_msg = st.text_area("🤬 상사의 킹받는 메시지:", placeholder="예: 이거 린하게 디벨롭 해보죠^^", height=100)
+# ---------------------------------------------------------
+# [1단계: 메시지 해독]
+# ---------------------------------------------------------
+if st.session_state.step >= 1:
+    st.markdown("### 🔍 STEP 1. 메시지 해독")
+    boss_msg = st.text_area("🤬 분석할 상사의 메시지:", placeholder="예: 이거 린하게 디벨롭 해보죠^^", height=100)
     
-    st.markdown("### 3️⃣ 내 본심 (재료)")
-    my_raw_reply = st.text_input("✍️ 내가 하고 싶은 말 (대충 쓰세요):", placeholder="예: 하기싫음, 알겠음, 내일함")
+    if st.button("해독 시작 🧐"):
+        if not boss_msg or not channel_id or not user_id:
+            st.warning("연동 정보와 메시지를 입력해주세요!")
+        else:
+            with st.spinner("AI가 행간의 의미를 분석 중..."):
+                decode_prompt = f"너는 눈치 100단 직장인이야. 다음 메시지의 숨겨진 진짜 의도를 팩트 폭격 수준으로 한 줄 요약해줘: '{boss_msg}'"
+                response = model.generate_content(decode_prompt)
+                st.session_state.decoded_text = response.text
+                st.session_state.step = 2 # 2단계로 이동
+                st.rerun()
 
-with col_right:
-    st.markdown("### 4️⃣ 말투 옵션 (최신 밈)")
-    # 밈 옵션 정의
-    meme_option = st.radio(
-        "원하는 필터를 선택하세요:",
-        [
-            "✨ 럭키비키 모드 (초긍정 원영사고)", 
-            "🤔 T발 너 C야? (극강의 논리/팩폭)", 
-            "🤫 누칼협 모드 (알빠노/사회성 제로)", 
-            "🫡 에너제틱 신입사원 (MZ 패기)",
-            "💀 은은한 광기 (친절한데 무서운)"
-        ]
-    )
+if st.session_state.decoded_text:
+    st.info(f"🚨 **상사의 속뜻:** {st.session_state.decoded_text}")
 
-# 실행 버튼
-st.markdown("<br>", unsafe_allow_html=True)
-if st.button("🚀 밈으로 승화된 답장 제조하기", use_container_width=True):
-    if not all([channel_id, user_id, boss_msg]):
-        st.warning("필수 정보를 입력해주세요!")
-    else:
-        with st.spinner("AI가 밈 저장소를 뒤지는 중..."):
+# ---------------------------------------------------------
+# [2단계: 답변 제조]
+# ---------------------------------------------------------
+if st.session_state.step == 2:
+    st.markdown("---")
+    st.markdown("### 🚀 STEP 2. 맞춤형 답변 생성")
+    
+    col_a, col_b = st.columns(2)
+    with col_a:
+        my_raw_reply = st.text_input("✍️ 내 본심 입력 (대충):", placeholder="예: 안됨, 내일함, 확인")
+    with col_b:
+        filter_option = st.selectbox(
+            "적용할 커뮤니케이션 필터:",
+            [
+                "✨ 초긍정 럭키비키 (원영사고)", 
+                "🤔 논리중심 T발 (데이터 기반)", 
+                "🫡 열정 신입사원 (패기)", 
+                "🤫 쿨한 방관자 (알빠노)", 
+                "💀 은은한 광기 (친절한 압박)"
+            ]
+        )
+
+    if st.button("최종 답장 제조하기 ✨"):
+        with st.spinner("내 말투 학습 및 필터 적용 중..."):
             try:
-                # 내 말투 수집
+                # 슬랙 말투 수집
                 result = slack_client.conversations_history(channel=channel_id, limit=40)
                 my_style = "\n- ".join([m["text"] for m in result["messages"] if m.get("user") == user_id][:15])
                 
-                # 프롬프트 가이드
                 instructions = {
-                    "✨ 럭키비키 모드 (초긍정 원영사고)": "모든 상황을 초긍정적으로 해석해. '오히려 좋아!', '완전 럭키비키잖아!' 같은 말투 사용.",
-                    "🤔 T발 너 C야? (극강의 논리/팩폭)": "감정 빼고 극도로 논리적으로 팩트만 공격해. 상대의 기분보다 효율이 우선인 말투.",
-                    "🤫 누칼협 모드 (알빠노/사회성 제로)": "'알빠노', '누가 칼 들고 협박함?' 같은 마인드로 아주 무심하고 건방지게 대답해.",
-                    "🫡 에너제틱 신입사원 (MZ 패기)": "지나치게 열정적이라 오히려 부담스러운 말투. '가보자고!', '가즈아!' 같은 에너지 뿜뿜.",
-                    "💀 은은한 광기 (친절한데 무서운)": "말투는 극도로 친절한데 내용이나 이모티콘이 묘하게 압박감을 주는 스타일 (예: ^^... 네 알겠습니다...)"
+                    "✨ 초긍정 럭키비키 (원영사고)": "모든 상황을 초긍정적으로 해석. '오히려 좋아', '완전 럭키비키' 표현 필수.",
+                    "🤔 논리중심 T발 (데이터 기반)": "감정을 배제하고 극도로 논리적인 팩트만 전달.",
+                    "🫡 열정 신입사원 (패기)": "지나치게 열정적이고 에너제틱한 신입사원 말투.",
+                    "🤫 쿨한 방관자 (알빠노)": "매우 무심하고 건조하게, 책임 소재를 확실히 하는 말투.",
+                    "💀 은은한 광기 (친절한 압박)": "말투는 극도로 친절하나 내용에 묘한 압박이 느껴짐."
                 }
 
-                prompt = f"""
-                너는 '그' 말투 번역기야. 사용자의 말투를 베이스로 최신 밈을 섞어 답장을 만들어.
+                final_prompt = f"""
+                너는 '그' 말투 번역기야. 
+                1. [학습된 내 말투]: {my_style}
+                2. [내 본심]: {my_raw_reply}
+                3. [적용 필터]: {instructions[filter_option]}
                 
-                [나의 평소 말투 데이터]: {my_style}
-                [상사 메시지]: {boss_msg}
-                [내 본심 내용]: {my_raw_reply if my_raw_reply else '적절하게'}
-                [장착할 밈 필터]: {instructions[meme_option]}
-                
-                미션:
-                1. 상사 메시지의 '진짜 속뜻'을 한 줄로 요약해.
-                2. '나의 평소 말투'를 50% 유지하면서, '밈 필터'를 50% 섞어서 최종 답장을 만들어.
-                
-                출력 양식:
-                🚨 **상사의 속뜻**: 
-                💡 **최종 답장 ({meme_option})**: 
+                미션: 내 말투를 50% 유지하면서 위 필터를 적용해 상사에게 보낼 최종 답장을 완성해줘.
+                결과는 딱 답장 내용만 한 줄로 출력해.
                 """
                 
-                response = model.generate_content(prompt)
-                st.session_state.translated_text = response.text
+                response = model.generate_content(final_prompt)
+                st.session_state.final_reply = response.text
                 st.balloons()
             except Exception as e:
                 st.error(f"오류: {e}")
 
-# 결과 출력
-if st.session_state.translated_text:
-    st.markdown("---")
-    st.markdown("### 🏆 제조 완료!")
-    st.info(st.session_state.translated_text)
+if st.session_state.final_reply:
+    st.markdown("#### 🏆 제안된 최종 답변")
+    st.success(st.session_state.final_reply)
     
-    if slack_webhook_url and st.button("💬 슬랙으로 폭탄 배송하기"):
-        requests.post(slack_webhook_url, json={"text": st.session_state.translated_text})
-        st.toast("배송 완료! 이제 로그아웃 하세요.")
+    c_send1, c_send2 = st.columns([1, 4])
+    with c_send1:
+        if st.button("슬랙으로 전송"):
+            requests.post(slack_webhook_url, json={"text": st.session_state.final_reply})
+            st.toast("전송 완료!")
+    with c_send2:
+        if st.button("처음부터 다시 하기 🔄"):
+            st.session_state.step = 1
+            st.session_state.decoded_text = ""
+            st.session_state.final_reply = ""
+            st.rerun()
